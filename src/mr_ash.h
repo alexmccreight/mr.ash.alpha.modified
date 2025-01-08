@@ -37,22 +37,24 @@ void updatebetaj       (const arma::vec& xj, double wj,
                         const arma::vec& s2inv,
                         double& a1, double& a2,
                         int j, int p,
-                        double epstol) {
+                        double epstol, 
+                        double arma::vec& xtomegaj) { //CHAGED!
   
-  // calculate b
-  double bjwj           = dot(r, xj) + betaj * wj;
+  // calculate b (CHANGED!)
+  double bj           = dot(r, xtomegaj) / wj + betaj ; 
   
   // update r first step
-  r                    += xj * betaj; 
+  r                    += xj * betaj ; 
   
-  // calculate muj
-  arma::vec muj         = bjwj * s2inv;
+  // calculate muj (CHANGED!)
+  arma::vec muj         = bj * sa2 * s2inv;
   muj(0)                = 0;
   
   // calculate phij
-  arma::vec phij        = log(piold + epstol) - log(1 + sa2 * wj)/2 + muj * (bjwj / 2 / sigma2);
+  arma::vec phij        = log(piold + epstol) + log(s2inv)/2 - (bj * bj * s2inv / 2 );
   phij                  = exp(phij - max(phij));
   phij                  = phij / sum(phij);
+  
   
   // pinew
   pi                   += phij / p;
@@ -64,7 +66,7 @@ void updatebetaj       (const arma::vec& xj, double wj,
   r                    += -xj * betaj;
   
   // precalculate for M-step
-  a1                   += bjwj * betaj;
+  a1                   += dot(phij, muj * muj + sa2 * wj *s2inv); //CHANGED!!!
   a2                   += dot(phij, log(phij + epstol));
   phij(0)               = 0;
   a2                   += -dot(phij, log(s2inv)) / 2;
