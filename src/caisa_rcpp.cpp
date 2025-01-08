@@ -12,7 +12,10 @@ Rcpp::List caisa_rcpp       (const arma::mat& X, const arma::vec& y,
                              int maxiter, int miniter,
                              double convtol, double epstol, std::string method_q,
                              bool updatepi, bool updatesigma,
-                             bool verbose) {
+                             bool verbose,
+                             const arma::mat& XtOmega, //CHANGED arguments
+                             double tausq,
+                             double sum_Dsq) { 
   
   // See "mr_ash.h"
   
@@ -39,7 +42,7 @@ Rcpp::List caisa_rcpp       (const arma::mat& X, const arma::vec& y,
   // ---------------------------------------------------------------------
   // PRECALCULATE
   // ---------------------------------------------------------------------
-  arma::mat S2inv        = 1 / outerAddition(1/sa2, w);
+  arma::mat S2inv        = 1 / outerAddition(sa2, w); //CHAGED 1 / outerAddition(1/sa2, w)
   S2inv.row(0).fill(epstol);
   
   // ---------------------------------------------------------------------
@@ -55,31 +58,36 @@ Rcpp::List caisa_rcpp       (const arma::mat& X, const arma::vec& y,
     betaold              = beta;
     
     // ---------------------------------------------------------------------
-    // RUN COORDINATE ASCENT UPDATES : INDEX 1 - INDEX P
+    // RUN COORDINATE ASCENT UPDATES : INDEX 1 - INDEX P CHANGED!  XtOmega.t().col(o(i)) added!
     // ---------------------------------------------------------------------
     for (j = 0; j < p; j++){
       
-      updatebetaj(X.col(o(i)), w(o(i)), beta(o(i)), r, piold, pi, sigma2, sa2, S2inv.col(o(i)), a1, a2, o(i), p, epstol);
+      updatebetaj(X.col(o(i)), w(o(i)), beta(o(i)), r, piold, pi, sigma2, sa2, S2inv.col(o(i)), a1, a2, o(i), p, epstol, XtOmega.t().col(o(i)));
       i++;
       // updatebetaj(X.col(j), w(j), beta(j), r, piold, pi, sigma2, sa2, S2inv.col(j), a1, a2, j, p, epstol);
       
     }
     
-    // ---------------------------------------------------------------------
-    // CALCULATE VARIATIONAL OBJECTIVE 1
-    // ---------------------------------------------------------------------
-    varobj(iter)          = arma::dot(r,r) - arma::dot(square(beta), w) + a1;
     
     // ---------------------------------------------------------------------
-    // UPDATE SIGMA2 IF REQUESTED
+    // CALCULATE VARIATIONAL OBJECTIVE 1 Changed Muted !
     // ---------------------------------------------------------------------
+    // varobj(iter)          = arma::dot(r,r) - arma::dot(square(beta), w) + a1;
+    
+    // ---------------------------------------------------------------------
+    // UPDATE SIGMA2 IF REQUESTED Changed Muted !
+    // ---------------------------------------------------------------------
+    // if (updatesigma) {
+    //    if (method_q == std::string("sigma_indep_q")) {
+    //    sigma2            = varobj(iter) + p * (1.0 - pi(0)) * sigma2;
+    //    sigma2            = sigma2 / (n + p * (1.0 - pi(0)));
+    //  } else if (method_q == std::string("sigma_dep_q")) {
+    //    sigma2            = varobj(iter) / n;
+    //  }
+    //}
+    
     if (updatesigma) {
-      if (method_q == std::string("sigma_indep_q")) {
-        sigma2            = varobj(iter) + p * (1.0 - pi(0)) * sigma2;
-        sigma2            = sigma2 / (n + p * (1.0 - pi(0)));
-      } else if (method_q == std::string("sigma_dep_q")) {
-        sigma2            = varobj(iter) / n;
-      }
+      sigma2 =   ()arma::dot(r,r) - arma::dot(beta, beta) * (n-1) + a1 * (n-1) - tausq * sum_Dsq)/n
     }
     
     if (updatepi) {
@@ -87,15 +95,15 @@ Rcpp::List caisa_rcpp       (const arma::mat& X, const arma::vec& y,
       piold               = pi;
     }
     // ---------------------------------------------------------------------
-    // CALCULATE VARIATIONAL OBJECTIVE 2
+    // CALCULATE VARIATIONAL OBJECTIVE 2: Changed Muted !
     // ---------------------------------------------------------------------
-    varobj(iter)          = varobj(iter) / sigma2 / 2.0 +
-                            log(2.0 * M_PI * sigma2) / 2.0 * n -
-                            dot(pi, log(piold + epstol)) * p + a2;
+    //varobj(iter)          = varobj(iter) / sigma2 / 2.0 +
+    //                        log(2.0 * M_PI * sigma2) / 2.0 * n -
+    //                        dot(pi, log(piold + epstol)) * p + a2;
     
-    for (j = 1; j < K; j++){
-      varobj(iter)       += pi(j) * log(sa2(j)) * p / 2;
-    }
+    // for (j = 1; j < K; j++){
+    //   varobj(iter)       += pi(j) * log(sa2(j)) * p / 2;
+    // }
     
     if (!updatepi) {
       // if updatepi == false, we do not update pi
@@ -111,10 +119,10 @@ Rcpp::List caisa_rcpp       (const arma::mat& X, const arma::vec& y,
         break;
       }
       
-      if (iter > 0) {
-        if (varobj(iter) > varobj(iter - 1)){
-          break;
-        }
+     // if (iter > 0) {
+    //    if (varobj(iter) > varobj(iter - 1)){
+    //      break;
+    //    }
       }
     }
   }
@@ -128,6 +136,7 @@ Rcpp::List caisa_rcpp       (const arma::mat& X, const arma::vec& y,
   return Rcpp::List::create(Rcpp::Named("beta")    = beta,
                             Rcpp::Named("sigma2")  = sigma2,
                             Rcpp::Named("pi")      = pi,
-                            Rcpp::Named("iter")    = iter,
-                            Rcpp::Named("varobj")  = varobj.subvec(0,iter-1));
+                            Rcpp::Named("iter")    = iter
+                            //Rcpp::Named("varobj")  = varobj.subvec(0,iter-1)
+                              );
 }
